@@ -7,6 +7,8 @@ type Config struct {
 
 	Fetch FetchConfig  `mapstructure:"fetch"`
 	Cache ChacheConfig `mapstructure:"cache"`
+
+	Refresh RefreshConfig `mapstructure:"refresh"`
 }
 
 type AsanaConfig struct {
@@ -22,4 +24,9 @@ type FetchConfig struct {
 }
 type ChacheConfig struct {
 	Path string `mapstructure:"path"`
+}
+
+type RefreshConfig struct {
+	Interval time.Duration `mapstructure:"interval"`
+	Retry    int           `mapstructure:"retry"`
 }

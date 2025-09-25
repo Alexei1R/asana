@@ -5,7 +5,8 @@ MAKEFLAGS += --silent
 
 .DEFAULT_GOAL := run
 
-.PHONY: run build tidy clean  air 
+.PHONY: run build tidy clean air test
+
 run:
 	@echo "🚀 Running application locally..."
 	@go run -buildvcs=false cmd/api/main.go
@@ -35,3 +36,7 @@ clean:
 	@rm -rf $(BUILD_DIR) tmp/ docs/api/
 	@echo "✓ Cleanup complete!"
 
+test:
+	@echo "🧪 Running tests..."
+	@go test -v ./...
+	@echo "✓ Tests completed!"

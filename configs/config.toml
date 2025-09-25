@@ -14,3 +14,8 @@ second_polling_interval = "5m"
 
 [cache]
 path = "./.cache"
+
+[refresh]
+interval = "1m"
+retry = 10
+

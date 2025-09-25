@@ -8,16 +8,18 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
+	"time"
 )
 
 type Client struct {
-	http *http.Client
+	Http *http.Client
 	cfg  *config.Config
 }
 
 func New() *Client {
 	return &Client{
-		http: http.DefaultClient,
+		Http: http.DefaultClient,
 		cfg:  config.Get(),
 	}
 }
@@ -42,16 +44,43 @@ func (c *Client) newRequest(ctx context.Context, method, path string, params url
 }
 
 func (c *Client) Do(ctx context.Context, method, path string, params url.Values) ([]byte, error) {
-	req, err := c.newRequest(ctx, method, path, params, nil)
-	if err != nil {
-		return nil, err
+	maxRetries := c.cfg.Refresh.Retry
+	wait := c.cfg.Refresh.Interval
+
+	for i := 0; i < maxRetries; i++ {
+		req, err := c.newRequest(ctx, method, path, params, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		resp, err := c.Http.Do(req)
+		if err != nil {
+			return nil, err
+		}
+
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+
+		if resp.StatusCode == 429 {
+			retryAfter := wait
+			if ra := resp.Header.Get("Retry-After"); ra != "" {
+				if sec, err := strconv.Atoi(ra); err == nil {
+					retryAfter = time.Duration(sec) * time.Second
+				}
+			}
+
+			log.Info("Rate limited, waiting %s before retry", retryAfter)
+			time.Sleep(retryAfter)
+			wait *= 2 // exponential backoff
+			continue
+		}
+
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			return body, nil
+		}
+
+		return nil, fmt.Errorf("status %d: %s", resp.StatusCode, string(body))
 	}
 
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	return io.ReadAll(resp.Body)
+	return nil, fmt.Errorf("max retries exceeded for %s %s", method, path)
 }
